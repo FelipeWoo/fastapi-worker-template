@@ -1,0 +1,22 @@
+# Core
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic
+pydantic-settings
+loguru
+pyjwt
+httpx
+
+# Testing
+pytest
+pytest-cov
+
+# Formatting / Linting
+black
+ruff
+ty
+
+# Notebooks (opcional para worker, puedes quitarlo si no lo usas)
+notebook
+ipykernel
