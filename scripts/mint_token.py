@@ -4,7 +4,7 @@ import secrets
 import jwt
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 secret = os.environ["INTERNAL_JWT_SECRET"]
 

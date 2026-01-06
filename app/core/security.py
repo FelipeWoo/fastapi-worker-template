@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-import os
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+from app.core.config import AppConfig
+from app.core.deps import get_config
 
 
 bearer = HTTPBearer(auto_error=False)
@@ -15,14 +17,11 @@ REQUIRED_CLAIMS = ["exp", "iat", "iss", "aud"]
 
 def require_internal_jwt(
     creds: HTTPAuthorizationCredentials | None = Depends(bearer),
+    cfg: AppConfig = Depends(get_config),
 ) -> dict[str, Any]:
-    # Read env at call time so values set by boot() or tests are respected
-    JWT_SECRET = os.getenv("INTERNAL_JWT_SECRET", "")
-    JWT_ISSUER = os.getenv("INTERNAL_JWT_ISSUER", "go-main")
-    JWT_AUDIENCE = os.getenv("INTERNAL_JWT_AUDIENCE", "fastapi-worker")
-    JWT_ALG = os.getenv("INTERNAL_JWT_ALG", "HS256")
+    jwt_cfg = cfg.internal_jwt
 
-    if not JWT_SECRET:
+    if not jwt_cfg.secret:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Missing INTERNAL_JWT_SECRET",
@@ -39,12 +38,12 @@ def require_internal_jwt(
     try:
         claims = jwt.decode(
             token,
-            JWT_SECRET,
-            algorithms=[JWT_ALG],
-            issuer=JWT_ISSUER,
-            audience=JWT_AUDIENCE,
+            jwt_cfg.secret,
+            algorithms=[jwt_cfg.alg],
+            issuer=jwt_cfg.issuer,
+            audience=jwt_cfg.audience,
             options={"require": REQUIRED_CLAIMS},
-            leeway=10,
+            leeway=jwt_cfg.leeway_seconds,
         )
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -61,7 +60,9 @@ def require_internal_jwt(
 
 
 def require_scope(required: str):
-    def checker(claims: dict[str, Any] = Depends(require_internal_jwt)) -> dict[str, Any]:
+    def checker(
+        claims: dict[str, Any] = Depends(require_internal_jwt),
+    ) -> dict[str, Any]:
         scope = claims.get("scope", "")
         scopes = set(str(scope).split())
         if required not in scopes:
@@ -70,4 +71,5 @@ def require_scope(required: str):
                 detail=f"Missing scope: {required}",
             )
         return claims
+
     return checker

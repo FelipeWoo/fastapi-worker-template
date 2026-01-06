@@ -1,43 +1,23 @@
-import os
-from dotenv import load_dotenv
-from app.core.logger import setup_loguru, logger
-from pydantic import BaseModel
+from __future__ import annotations
+
 from pathlib import Path
+from dotenv import load_dotenv
 
-
-class AppConfig(BaseModel):
-    name: str
-    env: str
-    log_level: str
-    root: str
-
-
-def get_root() -> str:
-    current = Path.cwd()
-    for parent in [current] + list(current.parents):
-        if (parent / "Makefile").is_file():
-            return str(parent.resolve())
-    raise FileNotFoundError("Makefile not found in any parent directory.")
+from app.core.config import AppConfig, load_config
+from app.core.paths import ensure_dir
+from app.core.logger import setup_loguru, logger
 
 
 def boot(log_name: str) -> AppConfig:
     load_dotenv(override=True)
 
-    config = AppConfig(
-        name=os.getenv("APP_NAME", "default"),
-        env=os.getenv("APP_ENV", "production"),
-        log_level=os.getenv("LOG_LEVEL", "INFO"),
-        root=get_root()
-    )
+    config = load_config()
 
-    log_dir = Path(config.root) / "logs" / f"{log_name}.log"
+    log_dir = ensure_dir(config.root / "logs")
+    log_file = log_dir / f"{log_name}.log"
 
-    setup_loguru(level=config.log_level, log_file=log_dir)
+    setup_loguru(level=config.log_level, log_file=log_file)
     logger.info("System initialized.")
     logger.debug(f"AppConfig: {config.model_dump()}")
 
     return config
-
-
-
-    
